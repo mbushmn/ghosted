@@ -3,7 +3,10 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 /* ------------------------------------------------------------------ */
 /*  Storage keys                                                       */
 /* ------------------------------------------------------------------ */
-const KEY = "applytrace:v1";
+const KEY = "ghosted:v1";
+// Older builds saved under this key. Read it once so renaming the app doesn't
+// look like it wiped the user's pipeline.
+const LEGACY_KEY = "applytrace:v1";
 
 /* ------------------------------------------------------------------ */
 /*  Pipeline stages — order defines the funnel                         */
@@ -402,16 +405,13 @@ const Ico = {
       <path d="M8.5 12.5l2.5 2.5 4.5-5" strokeLinecap="round" />
     </svg>
   ),
-  pin: (
+  ghost: (
     <svg viewBox="0 0 24 24" fill="currentColor">
-      <path d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7z" />
-      <path
-        d="M8.8 9.2l2.2 2.2 4-4"
-        stroke="#0D0F13"
-        strokeWidth="2"
-        fill="none"
-        strokeLinecap="round"
-      />
+      {/* dome head, straight sides, four-bump tattered hem */}
+      <path d="M12 2a8 8 0 0 0-8 8v9.55c0 .85.97 1.34 1.65.83l1.5-1.13a1 1 0 0 1 1.2 0l1.45 1.09a1 1 0 0 0 1.2 0l1.45-1.09a1 1 0 0 1 1.2 0l1.5 1.13c.68.51 1.65.02 1.65-.83V10a8 8 0 0 0-8-8z" />
+      {/* eyes knocked out in the sidebar colour */}
+      <ellipse cx="9.15" cy="9.7" rx="1.3" ry="1.65" fill="#0D0F13" />
+      <ellipse cx="14.85" cy="9.7" rx="1.3" ry="1.65" fill="#0D0F13" />
     </svg>
   ),
   plus: (
@@ -478,15 +478,24 @@ export default function App() {
 
   useEffect(() => {
     (async () => {
-      try {
-        const res = await window.storage.get(KEY);
-        if (res && res.value) {
-          const d = JSON.parse(res.value);
+      let saved = null;
+      for (const k of [KEY, LEGACY_KEY]) {
+        if (saved) break;
+        try {
+          const res = await window.storage.get(k);
+          if (res && res.value) saved = res.value;
+        } catch {
+          /* key absent — try the next one */
+        }
+      }
+      if (saved) {
+        try {
+          const d = JSON.parse(saved);
           setSources(d.sources || []);
           setTracked(d.tracked || {});
+        } catch {
+          /* corrupt payload — start clean rather than crash */
         }
-      } catch {
-        /* first run */
       }
       setReady(true);
     })();
@@ -723,9 +732,9 @@ export default function App() {
 
       <aside className="side">
         <div className="brand">
-          <span className="brand-mark">{Ico.pin}</span>
+          <span className="brand-mark">{Ico.ghost}</span>
           <span className="brand-name">
-            Apply<span>Trace</span>
+            Ghost<span>ed</span>
           </span>
         </div>
 
