@@ -995,21 +995,36 @@ export default function App() {
                   ))}
                 </div>
                 <div className="rates">
-                  <Rate
-                    label="Response rate"
-                    value={counts.applied ? (counts.interviewing + counts.offer) / counts.applied : 0}
-                    hint="interviews + offers ÷ applied"
-                  />
-                  <Rate
-                    label="Offer rate"
-                    value={counts.interviewing ? counts.offer / counts.interviewing : 0}
-                    hint="offers ÷ interviews"
-                  />
-                  <Rate
-                    label="Rejection rate"
-                    value={totalTracked ? counts.rejected / totalTracked : 0}
-                    hint="rejected ÷ everything tracked"
-                  />
+                  {(() => {
+                    // Stages are exclusive buckets, so counts.applied holds only
+                    // those *still* in Applied. Reconstruct who passed through
+                    // each gate, otherwise the ratios blow past 100%.
+                    const everApplied =
+                      counts.applied +
+                      counts.interviewing +
+                      counts.offer +
+                      counts.rejected;
+                    const reachedInterview = counts.interviewing + counts.offer;
+                    return (
+                      <>
+                        <Rate
+                          label="Response rate"
+                          value={everApplied ? reachedInterview / everApplied : 0}
+                          hint="reached interview ÷ ever applied"
+                        />
+                        <Rate
+                          label="Offer rate"
+                          value={reachedInterview ? counts.offer / reachedInterview : 0}
+                          hint="offers ÷ reached interview"
+                        />
+                        <Rate
+                          label="Rejection rate"
+                          value={everApplied ? counts.rejected / everApplied : 0}
+                          hint="rejected ÷ ever applied"
+                        />
+                      </>
+                    );
+                  })()}
                 </div>
               </>
             )}
