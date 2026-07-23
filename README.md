@@ -1,4 +1,4 @@
-# 👻 Ghosted
+#Ghosted
 
 A job application tracker for new grads and interns. Pull open roles straight from
 the GitHub listing repos everyone already uses, then track what you applied to,
