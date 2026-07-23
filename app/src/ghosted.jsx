@@ -342,6 +342,17 @@ function stableId(str) {
   return "j" + (h >>> 0).toString(36);
 }
 
+function relTime(ts) {
+  if (!ts) return "just now";
+  const secs = Math.floor((Date.now() - ts) / 1000);
+  if (secs < 60) return "just now";
+  const mins = Math.floor(secs / 60);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
 function fmtDate(job) {
   if (job.posted) {
     return new Date(job.posted).toLocaleDateString(undefined, {
@@ -407,11 +418,17 @@ const Ico = {
   ),
   ghost: (
     <svg viewBox="0 0 24 24" fill="currentColor">
-      {/* dome head, straight sides, four-bump tattered hem */}
-      <path d="M12 2a8 8 0 0 0-8 8v9.55c0 .85.97 1.34 1.65.83l1.5-1.13a1 1 0 0 1 1.2 0l1.45 1.09a1 1 0 0 0 1.2 0l1.45-1.09a1 1 0 0 1 1.2 0l1.5 1.13c.68.51 1.65.02 1.65-.83V10a8 8 0 0 0-8-8z" />
+      {/* dome head + four-bump hem, symmetric about x=12 */}
+      <path d="M4 10a8 8 0 0 1 16 0v9.6a2 2 0 0 1-4 0 2 2 0 0 1-4 0 2 2 0 0 1-4 0 2 2 0 0 1-4 0z" />
       {/* eyes knocked out in the sidebar colour */}
-      <ellipse cx="9.15" cy="9.7" rx="1.3" ry="1.65" fill="#0D0F13" />
-      <ellipse cx="14.85" cy="9.7" rx="1.3" ry="1.65" fill="#0D0F13" />
+      <ellipse cx="9" cy="9.7" rx="1.6" ry="2" fill="#0D0F13" />
+      <ellipse cx="15" cy="9.7" rx="1.6" ry="2" fill="#0D0F13" />
+    </svg>
+  ),
+  refresh: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M20.5 12a8.5 8.5 0 1 1-2.49-6.01" strokeLinecap="round" />
+      <path d="M20.5 3.5v5h-5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   ),
   plus: (
@@ -468,6 +485,14 @@ export default function App() {
   const [stageFilter, setStageFilter] = useState(null);
   const [limit, setLimit] = useState(40);
   const [expanded, setExpanded] = useState(null);
+  const [lastRefreshed, setLastRefreshed] = useState(null);
+  const [, setTick] = useState(0);
+
+  // Keeps the "updated Nm ago" label honest without re-fetching anything.
+  useEffect(() => {
+    const t = setInterval(() => setTick((n) => n + 1), 30000);
+    return () => clearInterval(t);
+  }, []);
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(query), 180);
@@ -529,6 +554,7 @@ export default function App() {
         ...s,
         [srcKey]: { state: "ok", count: fetched.length, seen, via },
       }));
+      setLastRefreshed(Date.now());
     } catch (e) {
       setStatus((s) => ({ ...s, [srcKey]: { state: "error", msg: e.message } }));
     }
@@ -541,6 +567,12 @@ export default function App() {
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, sources]);
+
+  const isRefreshing = sources.some((s) => status[s]?.state === "loading");
+
+  const refreshAll = useCallback(() => {
+    sources.forEach((s) => refresh(s));
+  }, [sources, refresh]);
 
   function addSource() {
     const parsed = parseRepo(input);
@@ -873,7 +905,32 @@ export default function App() {
                   ))}
                 </select>
               )}
+              <button
+                className="btn"
+                onClick={refreshAll}
+                disabled={!sources.length || isRefreshing}
+                title={
+                  sources.length
+                    ? "Re-fetch every source"
+                    : "Add a source under Settings first"
+                }
+              >
+                <span className={isRefreshing ? "btn-ico spin" : "btn-ico"}>
+                  {Ico.refresh}
+                </span>
+                {isRefreshing ? "Refreshing…" : "Refresh"}
+              </button>
             </div>
+
+            {(lastRefreshed || isRefreshing) && (
+              <p className="stamp">
+                {isRefreshing
+                  ? "Fetching latest roles…"
+                  : `${discoverJobs.length.toLocaleString()} roles · updated ${relTime(
+                      lastRefreshed
+                    )}`}
+              </p>
+            )}
 
             {discoverJobs.length === 0 ? (
               <Empty
@@ -1282,6 +1339,10 @@ const CSS = `
 .btn:disabled{opacity:.4;cursor:default}
 .btn-ico{width:16px;height:16px}
 .btn-ico svg{width:100%;height:100%}
+.spin svg{animation:ghspin .9s linear infinite;transform-origin:50% 50%}
+@keyframes ghspin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin svg{animation:none}}
+.stamp{margin:-6px 0 0;font-size:12px;color:var(--dim)}
 .link{border:0;background:none;color:var(--accent);font:inherit;
   font-weight:600;font-size:13px;cursor:pointer}
 
